@@ -1,0 +1,48 @@
+{
+  "name": "datagates",
+  "version": "0.1.0",
+  "description": "ML-grade dataset cleaning as a layered gate system. Data earns promotion.",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "tsc --noEmit",
+    "verify": "npm run lint && npm test"
+  },
+  "keywords": [
+    "data",
+    "validation",
+    "cleaning",
+    "ml",
+    "dataset",
+    "gate",
+    "quarantine",
+    "pipeline"
+  ],
+  "author": "mcp-tool-shop",
+  "license": "MIT",
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0",
+    "vitest": "^3.0.0"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.0.0"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ]
+}
