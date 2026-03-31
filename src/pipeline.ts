@@ -1,11 +1,13 @@
 import { randomUUID } from 'node:crypto';
 import type {
   SchemaContract, GatePolicy, RawRecord, ZonedRecord,
-  BatchSummary, FailureReason, FailureClass,
+  BatchSummary, FailureReason, FailureClass, ConfidenceBreakdown,
 } from './types.js';
 import { validate } from './validate.js';
 import { normalize, NORMALIZATION_VERSION } from './normalize.js';
 import { hashPayload, contentAddressedId } from './hash.js';
+import { evaluateSemanticRules } from './semantic.js';
+import { findNearDuplicates } from './similarity.js';
 import { ZoneStore } from './store.js';
 
 export interface IngestResult {
@@ -14,14 +16,10 @@ export interface IngestResult {
 }
 
 /**
- * The intake pipeline: Raw → Validate → Normalize → Dedupe → Zone assignment.
+ * The intake pipeline: Raw → Validate → Normalize → Semantic → Dedupe → Score → Zone.
  *
- * This is the Phase 1 hard gate. It enforces:
- * - Schema validation (reject malformed)
- * - Normalization (deterministic canonicalization)
- * - Exact duplicate detection (raw hash + normalized hash)
- * - Reason-coded quarantine (never silently delete)
- * - Batch-level thresholds (promote or reject entire batch)
+ * Phase 1: structural validation, normalization, exact dedup
+ * Phase 2: semantic rules, near-duplicate detection, confidence scoring
  */
 export class Pipeline {
   constructor(
@@ -30,19 +28,19 @@ export class Pipeline {
     private store: ZoneStore,
   ) {}
 
-  /**
-   * Ingest a batch of raw records through the gate system.
-   * Returns the batch summary and all zoned records.
-   */
   ingest(records: RawRecord[]): IngestResult {
     const batchRunId = randomUUID();
     const timestamp = new Date().toISOString();
     const zonedRecords: ZonedRecord[] = [];
     const rejectReasons: Record<string, number> = {};
     let duplicatesDetected = 0;
+    let nearDuplicatesDetected = 0;
+    let semanticViolationCount = 0;
 
     // Track normalized hashes within this batch for intra-batch dedup
     const batchNormalizedHashes = new Set<string>();
+    // Track intra-batch candidates for near-duplicate comparison
+    const batchCandidates: { id: string; payload: Record<string, unknown> }[] = [];
 
     let recordIndex = 0;
     for (const raw of records) {
@@ -52,11 +50,10 @@ export class Pipeline {
       // ── Step 1: Raw duplicate check (exact payload seen before?) ──
       if (this.store.hasRawHash(rawHash)) {
         duplicatesDetected++;
-        // Use batch+index salt so quarantine records get unique IDs
         const qId = contentAddressedId(raw.sourceId, rawHash, `${batchRunId}:${recordIndex}`);
         const record = buildRecord(qId, 'quarantine', raw, batchRunId, rawHash, null, null, [
           { field: '_record', rule: 'duplicate_payload', message: 'Exact payload already exists in store' },
-        ], this.schema.schemaVersion, this.policy.gatePolicyVersion);
+        ], this.schema.schemaVersion, this.policy.gatePolicyVersion, null);
         zonedRecords.push(record);
         tally(rejectReasons, 'duplicate_payload');
         recordIndex++;
@@ -67,7 +64,7 @@ export class Pipeline {
       const failures = validate(raw.payload, this.schema);
       if (failures.length > 0) {
         const record = buildRecord(id, 'quarantine', raw, batchRunId, rawHash, null, null,
-          failures, this.schema.schemaVersion, this.policy.gatePolicyVersion);
+          failures, this.schema.schemaVersion, this.policy.gatePolicyVersion, null);
         zonedRecords.push(record);
         for (const f of failures) tally(rejectReasons, f.rule);
         continue;
@@ -84,19 +81,90 @@ export class Pipeline {
         const record = buildRecord(qId, 'quarantine', raw, batchRunId, rawHash, normalizedHash,
           normalizedPayload, [
             { field: '_record', rule: 'duplicate_id', message: 'Normalized payload matches existing record' },
-          ], this.schema.schemaVersion, this.policy.gatePolicyVersion);
+          ], this.schema.schemaVersion, this.policy.gatePolicyVersion, null);
         zonedRecords.push(record);
         tally(rejectReasons, 'duplicate_id');
         recordIndex++;
         continue;
       }
 
+      // ── Step 5: Semantic rules (Phase 2) ──────────────────────────
+      const semanticFailures: FailureReason[] = [];
+      if (this.policy.semanticRules && this.policy.semanticRules.length > 0) {
+        const sf = evaluateSemanticRules(normalizedPayload, this.policy.semanticRules);
+        semanticFailures.push(...sf);
+      }
+
+      if (semanticFailures.length > 0) {
+        semanticViolationCount += semanticFailures.length;
+        const qId = contentAddressedId(raw.sourceId, rawHash, `${batchRunId}:${recordIndex}`);
+        const record = buildRecord(qId, 'quarantine', raw, batchRunId, rawHash, normalizedHash,
+          normalizedPayload, semanticFailures, this.schema.schemaVersion, this.policy.gatePolicyVersion, null);
+        zonedRecords.push(record);
+        for (const f of semanticFailures) tally(rejectReasons, f.rule);
+        recordIndex++;
+        continue;
+      }
+
+      // ── Step 6: Near-duplicate detection (Phase 2) ────────────────
+      let maxSimilarity = 0;
+      let nearDuplicateOf: string[] = [];
+
+      if (this.policy.nearDuplicate) {
+        // Compare against store + intra-batch candidates
+        const existingCandidates = this.store.getCandidatesForSimilarity();
+        const allCandidates = [...existingCandidates, ...batchCandidates];
+
+        const matches = findNearDuplicates(normalizedPayload, allCandidates, this.policy.nearDuplicate);
+        if (matches.length > 0) {
+          maxSimilarity = matches[0].score;
+          nearDuplicateOf = matches.map(m => m.matchId);
+          nearDuplicatesDetected++;
+
+          const qId = contentAddressedId(raw.sourceId, rawHash, `${batchRunId}:${recordIndex}`);
+          const record = buildRecord(qId, 'quarantine', raw, batchRunId, rawHash, normalizedHash,
+            normalizedPayload, [
+              {
+                field: '_record',
+                rule: 'near_duplicate',
+                message: `Near-duplicate of [${nearDuplicateOf.join(', ')}] (similarity: ${maxSimilarity.toFixed(3)})`,
+              },
+            ], this.schema.schemaVersion, this.policy.gatePolicyVersion, {
+              score: 0,
+              gates: { schema: true, semantic: true, nearDuplicate: false },
+              semanticViolations: 0,
+              maxSimilarity,
+              nearDuplicateOf,
+            });
+          zonedRecords.push(record);
+          tally(rejectReasons, 'near_duplicate');
+          recordIndex++;
+          continue;
+        }
+      }
+
       batchNormalizedHashes.add(normalizedHash);
 
-      // ── Step 5: Passed — assign to candidate zone ─────────────────
+      // ── Step 7: Compute confidence and assign to candidate ────────
+      const confidence: ConfidenceBreakdown = {
+        score: 1.0, // perfect: passed all gates
+        gates: { schema: true, semantic: true, nearDuplicate: true },
+        semanticViolations: 0,
+        maxSimilarity,
+        nearDuplicateOf,
+      };
+
+      // Degrade confidence based on similarity (even if below near-dup threshold)
+      if (maxSimilarity > 0) {
+        confidence.score = Math.max(0, 1.0 - maxSimilarity * 0.3);
+      }
+
       const record = buildRecord(id, 'candidate', raw, batchRunId, rawHash, normalizedHash,
-        normalizedPayload, [], this.schema.schemaVersion, this.policy.gatePolicyVersion);
+        normalizedPayload, [], this.schema.schemaVersion, this.policy.gatePolicyVersion, confidence);
       zonedRecords.push(record);
+
+      // Track for intra-batch near-dup comparison
+      batchCandidates.push({ id, payload: normalizedPayload });
     }
 
     // ── Batch-level gate ────────────────────────────────────────────
@@ -104,23 +172,33 @@ export class Pipeline {
     const rowsQuarantined = zonedRecords.filter(r => r.zone === 'quarantine').length;
     const rowsPassed = rowsIngested - rowsQuarantined;
 
-    // Compute null rates for required fields
     const nullRates = computeNullRates(
       zonedRecords.filter(r => r.zone === 'candidate'),
       this.schema,
     );
 
-    // Evaluate batch thresholds
     const quarantineRatio = rowsIngested > 0 ? rowsQuarantined / rowsIngested : 0;
     const duplicateRatio = rowsIngested > 0 ? duplicatesDetected / rowsIngested : 0;
+    const nearDupRatio = rowsIngested > 0 ? nearDuplicatesDetected / rowsIngested : 0;
     const maxNullRate = Object.values(nullRates).length > 0
       ? Math.max(...Object.values(nullRates))
       : 0;
 
+    // Compute average confidence of candidate records
+    const candidateRecords = zonedRecords.filter(r => r.zone === 'candidate');
+    const avgConfidence = candidateRecords.length > 0
+      ? candidateRecords.reduce((sum, r) => sum + (r.confidence?.score ?? 1.0), 0) / candidateRecords.length
+      : 0;
+
+    const maxNearDupRatio = this.policy.maxNearDuplicateRatio ?? 1.0;
+    const minConfidence = this.policy.minConfidence ?? 0.0;
+
     const promoted =
       quarantineRatio <= this.policy.maxQuarantineRatio &&
       duplicateRatio <= this.policy.maxDuplicateRatio &&
+      nearDupRatio <= maxNearDupRatio &&
       maxNullRate <= this.policy.maxCriticalNullRate &&
+      avgConfidence >= minConfidence &&
       rowsPassed > 0;
 
     // Persist all records
@@ -129,7 +207,6 @@ export class Pipeline {
     // If batch passes, promote candidates to approved
     if (promoted) {
       this.store.promoteBatch(batchRunId);
-      // Update in-memory records to reflect promotion
       for (const r of zonedRecords) {
         if (r.zone === 'candidate') r.zone = 'approved';
       }
@@ -145,7 +222,10 @@ export class Pipeline {
       rowsPassed,
       rowsQuarantined,
       duplicatesDetected,
+      nearDuplicatesDetected,
+      semanticViolations: semanticViolationCount,
       nullRates,
+      avgConfidence,
       promoted,
       rejectReasons: rejectReasons as Record<FailureClass, number>,
     };
@@ -161,6 +241,7 @@ function buildRecord(
   raw: RawRecord, batchRunId: string, rawHash: string,
   normalizedHash: string | null, normalizedPayload: Record<string, unknown> | null,
   failures: FailureReason[], schemaVersion: string, gatePolicyVersion: string,
+  confidence: ConfidenceBreakdown | null,
 ): ZonedRecord {
   return {
     id,
@@ -176,6 +257,7 @@ function buildRecord(
     schemaVersion,
     normalizationVersion: NORMALIZATION_VERSION,
     gatePolicyVersion,
+    confidence,
   };
 }
 

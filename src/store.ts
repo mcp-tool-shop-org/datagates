@@ -28,6 +28,7 @@ export class ZoneStore {
         payload TEXT NOT NULL,
         normalized_payload TEXT,
         failures TEXT NOT NULL DEFAULT '[]',
+        confidence TEXT,
         schema_version TEXT NOT NULL,
         normalization_version TEXT NOT NULL,
         gate_policy_version TEXT NOT NULL,
@@ -50,7 +51,10 @@ export class ZoneStore {
         rows_passed INTEGER NOT NULL,
         rows_quarantined INTEGER NOT NULL,
         duplicates_detected INTEGER NOT NULL,
+        near_duplicates_detected INTEGER NOT NULL DEFAULT 0,
+        semantic_violations INTEGER NOT NULL DEFAULT 0,
         null_rates TEXT NOT NULL,
+        avg_confidence REAL NOT NULL DEFAULT 1.0,
         promoted INTEGER NOT NULL DEFAULT 0,
         reject_reasons TEXT NOT NULL DEFAULT '{}'
       );
@@ -62,11 +66,11 @@ export class ZoneStore {
       INSERT INTO records (
         id, zone, source_id, batch_run_id, ingest_timestamp,
         raw_hash, normalized_hash, payload, normalized_payload,
-        failures, schema_version, normalization_version, gate_policy_version
+        failures, confidence, schema_version, normalization_version, gate_policy_version
       ) VALUES (
         @id, @zone, @sourceId, @batchRunId, @ingestTimestamp,
         @rawHash, @normalizedHash, @payload, @normalizedPayload,
-        @failures, @schemaVersion, @normalizationVersion, @gatePolicyVersion
+        @failures, @confidence, @schemaVersion, @normalizationVersion, @gatePolicyVersion
       )
     `).run({
       id: record.id,
@@ -79,6 +83,7 @@ export class ZoneStore {
       payload: JSON.stringify(record.payload),
       normalizedPayload: record.normalizedPayload ? JSON.stringify(record.normalizedPayload) : null,
       failures: JSON.stringify(record.failures),
+      confidence: record.confidence ? JSON.stringify(record.confidence) : null,
       schemaVersion: record.schemaVersion,
       normalizationVersion: record.normalizationVersion,
       gatePolicyVersion: record.gatePolicyVersion,
@@ -97,11 +102,13 @@ export class ZoneStore {
       INSERT OR REPLACE INTO batch_summaries (
         batch_run_id, timestamp, schema_version, normalization_version,
         gate_policy_version, rows_ingested, rows_passed, rows_quarantined,
-        duplicates_detected, null_rates, promoted, reject_reasons
+        duplicates_detected, near_duplicates_detected, semantic_violations,
+        null_rates, avg_confidence, promoted, reject_reasons
       ) VALUES (
         @batchRunId, @timestamp, @schemaVersion, @normalizationVersion,
         @gatePolicyVersion, @rowsIngested, @rowsPassed, @rowsQuarantined,
-        @duplicatesDetected, @nullRates, @promoted, @rejectReasons
+        @duplicatesDetected, @nearDuplicatesDetected, @semanticViolations,
+        @nullRates, @avgConfidence, @promoted, @rejectReasons
       )
     `).run({
       batchRunId: summary.batchRunId,
@@ -113,7 +120,10 @@ export class ZoneStore {
       rowsPassed: summary.rowsPassed,
       rowsQuarantined: summary.rowsQuarantined,
       duplicatesDetected: summary.duplicatesDetected,
+      nearDuplicatesDetected: summary.nearDuplicatesDetected,
+      semanticViolations: summary.semanticViolations,
       nullRates: JSON.stringify(summary.nullRates),
+      avgConfidence: summary.avgConfidence,
       promoted: summary.promoted ? 1 : 0,
       rejectReasons: JSON.stringify(summary.rejectReasons),
     });
@@ -142,7 +152,10 @@ export class ZoneStore {
       rowsPassed: row.rows_passed,
       rowsQuarantined: row.rows_quarantined,
       duplicatesDetected: row.duplicates_detected,
+      nearDuplicatesDetected: row.near_duplicates_detected,
+      semanticViolations: row.semantic_violations,
       nullRates: JSON.parse(row.null_rates),
+      avgConfidence: row.avg_confidence,
       promoted: !!row.promoted,
       rejectReasons: JSON.parse(row.reject_reasons),
     };
@@ -172,6 +185,13 @@ export class ZoneStore {
     return result.changes;
   }
 
+  getCandidatesForSimilarity(): { id: string; payload: Record<string, unknown> }[] {
+    const rows = this.db.prepare(
+      "SELECT id, normalized_payload FROM records WHERE zone IN ('candidate', 'approved') AND normalized_payload IS NOT NULL"
+    ).all() as any[];
+    return rows.map(r => ({ id: r.id, payload: JSON.parse(r.normalized_payload) }));
+  }
+
   countByZone(zone: Zone): number {
     const row = this.db.prepare('SELECT COUNT(*) as count FROM records WHERE zone = ?').get(zone) as any;
     return row.count;
@@ -194,6 +214,7 @@ function deserializeRecord(row: any): ZonedRecord {
     payload: JSON.parse(row.payload),
     normalizedPayload: row.normalized_payload ? JSON.parse(row.normalized_payload) : null,
     failures: JSON.parse(row.failures),
+    confidence: row.confidence ? JSON.parse(row.confidence) : null,
     schemaVersion: row.schema_version,
     normalizationVersion: row.normalization_version,
     gatePolicyVersion: row.gate_policy_version,

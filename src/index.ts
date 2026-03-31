@@ -4,6 +4,8 @@ export { ZoneStore } from './store.js';
 export { validate } from './validate.js';
 export { normalize, NORMALIZATION_VERSION } from './normalize.js';
 export { hashPayload, contentAddressedId } from './hash.js';
+export { evaluateSemanticRules } from './semantic.js';
+export { findNearDuplicates, computeRecordSimilarity } from './similarity.js';
 export type {
   SchemaContract,
   FieldDef,
@@ -15,4 +17,10 @@ export type {
   BatchSummary,
   GatePolicy,
   Zone,
+  SemanticRule,
+  SemanticCondition,
+  SemanticOperator,
+  NearDuplicateConfig,
+  NearDuplicateFieldConfig,
+  ConfidenceBreakdown,
 } from './types.js';
