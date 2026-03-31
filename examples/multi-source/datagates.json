@@ -1,0 +1,8 @@
+{
+  "name": "multi-source-example",
+  "schemaPath": "schema.json",
+  "policyPath": "policy.json",
+  "storePath": "datagates.db",
+  "shadowPolicyPath": "shadow-policy.json",
+  "artifactsPath": "artifacts"
+}

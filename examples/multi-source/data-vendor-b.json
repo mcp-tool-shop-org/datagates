@@ -1,0 +1,6 @@
+[
+  { "id": "vb-001", "name": "Gadget X", "value": -100, "category": "alpha" },
+  { "id": "vb-002", "name": "Gadget Y", "value": 50, "category": "invalid" },
+  { "id": "vb-003", "name": "Gadget Z", "value": 999, "category": "beta" },
+  { "id": "vb-004", "value": 200, "category": "gamma" }
+]

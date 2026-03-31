@@ -1,0 +1,11 @@
+{
+  "schemaId": "articles",
+  "schemaVersion": "1.0.0",
+  "fields": {
+    "title": { "type": "string", "required": true, "normalizeCasing": "lower" },
+    "text": { "type": "string", "required": true, "normalizeCasing": "lower" },
+    "category": { "type": "enum", "required": true, "enum": ["tutorial", "research", "opinion"] },
+    "author": { "type": "string", "required": true, "normalizeCasing": "lower" }
+  },
+  "primaryKeys": ["title"]
+}

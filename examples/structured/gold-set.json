@@ -1,0 +1,30 @@
+[
+  {
+    "id": "gold-valid",
+    "payload": { "id": "g1", "name": "Test Valid", "value": 100, "category": "alpha" },
+    "sourceId": "gold",
+    "expected": "approve",
+    "reason": "All fields valid"
+  },
+  {
+    "id": "gold-negative",
+    "payload": { "id": "g2", "name": "Test Negative", "value": -10, "category": "alpha" },
+    "sourceId": "gold",
+    "expected": "quarantine",
+    "reason": "Negative value out of range"
+  },
+  {
+    "id": "gold-bad-enum",
+    "payload": { "id": "g3", "name": "Test BadEnum", "value": 50, "category": "invalid" },
+    "sourceId": "gold",
+    "expected": "quarantine",
+    "reason": "Category not in allowed list"
+  },
+  {
+    "id": "gold-missing",
+    "payload": { "id": "g4", "category": "beta" },
+    "sourceId": "gold",
+    "expected": "quarantine",
+    "reason": "Missing required fields: name, value"
+  }
+]

@@ -1,0 +1,10 @@
+[
+  { "title": "Introduction to Machine Learning", "text": "Machine learning is a subset of artificial intelligence that provides systems the ability to learn from data.", "category": "tutorial", "author": "Smith" },
+  { "title": "Intro to Machine Learning", "text": "Machine learning is a subset of AI that gives systems the ability to learn from data.", "category": "tutorial", "author": "Smith" },
+  { "title": "Deep Learning Fundamentals", "text": "Deep learning uses neural networks with many layers to learn representations of data.", "category": "tutorial", "author": "Jones" },
+  { "title": "Introduction to Machine Learning", "text": "Machine learning is a subset of artificial intelligence that provides systems the ability to learn from data.", "category": "tutorial", "author": "Smith" },
+  { "title": "Natural Language Processing", "text": "NLP is a field of AI focused on the interaction between computers and human language.", "category": "research", "author": "Davis" },
+  { "title": "Reinforcement Learning", "text": "RL is an area of ML concerned with how agents take actions in an environment to maximize reward.", "category": "research", "author": "Lee" },
+  { "title": "Computer Vision Basics", "text": "Computer vision enables machines to interpret and make decisions based on visual data.", "category": "tutorial", "author": "Park" },
+  { "title": "Intro to ML", "text": "ML is a subset of AI that provides systems ability to learn from data automatically.", "category": "tutorial", "author": "Smith" }
+]

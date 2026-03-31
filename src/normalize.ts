@@ -13,7 +13,7 @@ export function normalize(
   const result: Record<string, unknown> = {};
 
   for (const [field, def] of Object.entries(schema.fields)) {
-    let value = payload[field];
+    let value: unknown = payload[field];
 
     if (value === undefined || value === null) {
       // Canonical null: always use null, never undefined
@@ -28,8 +28,8 @@ export function normalize(
 
     // Casing normalization
     if (typeof value === 'string' && def.normalizeCasing) {
-      if (def.normalizeCasing === 'lower') value = value.toLowerCase();
-      if (def.normalizeCasing === 'upper') value = value.toUpperCase();
+      if (def.normalizeCasing === 'lower') value = (value as string).toLowerCase();
+      if (def.normalizeCasing === 'upper') value = (value as string).toUpperCase();
     }
 
     // Date normalization: convert to ISO string (UTC)

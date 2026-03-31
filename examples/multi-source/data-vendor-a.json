@@ -1,0 +1,6 @@
+[
+  { "id": "va-001", "name": "Widget A", "value": 250, "category": "alpha" },
+  { "id": "va-002", "name": "Widget B", "value": 300, "category": "beta" },
+  { "id": "va-003", "name": "Widget C", "value": 175, "category": "gamma" },
+  { "id": "va-004", "name": "Widget D", "value": 500, "category": "alpha" }
+]

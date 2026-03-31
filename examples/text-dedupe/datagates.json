@@ -1,0 +1,7 @@
+{
+  "name": "text-dedupe-example",
+  "schemaPath": "schema.json",
+  "policyPath": "policy.json",
+  "storePath": "datagates.db",
+  "artifactsPath": "artifacts"
+}

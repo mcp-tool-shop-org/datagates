@@ -1,0 +1,12 @@
+{
+  "schemaId": "employee",
+  "schemaVersion": "1.0.0",
+  "fields": {
+    "id": { "type": "string", "required": true },
+    "name": { "type": "string", "required": true, "normalizeCasing": "lower" },
+    "value": { "type": "number", "required": true, "min": 0, "max": 10000 },
+    "category": { "type": "enum", "required": true, "enum": ["alpha", "beta", "gamma"] },
+    "description": { "type": "string", "required": false }
+  },
+  "primaryKeys": ["id"]
+}

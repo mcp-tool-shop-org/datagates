@@ -18,6 +18,17 @@ export { ReviewQueue } from './review.js';
 export { SourceRegistry } from './onboarding.js';
 export { buildDecisionArtifact } from './artifact.js';
 export { runShadow } from './shadow.js';
+export { POLICY_PACKS, getPolicyPack, defaultSchema, defaultPolicy, defaultGoldSet, defaultConfig } from './templates.js';
+export type { PolicyPack } from './templates.js';
+export type { ProjectConfig } from './config.js';
+export {
+  findConfig, loadConfig, saveConfig,
+  loadSchema, loadPolicy, loadGoldSet, loadShadowPolicy,
+} from './config.js';
+export {
+  formatBatchReport, formatCalibrationReport,
+  formatShadowReport, formatArtifactReport, EXIT,
+} from './report.js';
 
 export type {
   SchemaContract,

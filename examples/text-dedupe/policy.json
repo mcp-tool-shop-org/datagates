@@ -1,0 +1,16 @@
+{
+  "gatePolicyVersion": "text-dedupe-1.0",
+  "maxQuarantineRatio": 0.5,
+  "maxDuplicateRatio": 0.3,
+  "maxCriticalNullRate": 0.05,
+  "minConfidence": 0.5,
+  "maxNearDuplicateRatio": 0.3,
+  "nearDuplicate": {
+    "threshold": 0.75,
+    "fields": [
+      { "field": "text", "similarity": "token_jaccard", "weight": 3.0 },
+      { "field": "title", "similarity": "levenshtein", "weight": 2.0 },
+      { "field": "category", "similarity": "exact", "weight": 1.0 }
+    ]
+  }
+}

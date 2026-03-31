@@ -1,0 +1,16 @@
+{
+  "gatePolicyVersion": "structured-1.0",
+  "maxQuarantineRatio": 0.4,
+  "maxDuplicateRatio": 0.3,
+  "maxCriticalNullRate": 0.1,
+  "minConfidence": 0.5,
+  "maxNearDuplicateRatio": 0.2,
+  "nearDuplicate": {
+    "threshold": 0.85,
+    "fields": [
+      { "field": "name", "similarity": "levenshtein", "weight": 2.0 },
+      { "field": "value", "similarity": "numeric", "weight": 1.0 },
+      { "field": "category", "similarity": "exact", "weight": 1.0 }
+    ]
+  }
+}

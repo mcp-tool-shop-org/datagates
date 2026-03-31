@@ -1,0 +1,8 @@
+{
+  "name": "structured-example",
+  "schemaPath": "schema.json",
+  "policyPath": "policy.json",
+  "storePath": "datagates.db",
+  "goldSetPath": "gold-set.json",
+  "artifactsPath": "artifacts"
+}

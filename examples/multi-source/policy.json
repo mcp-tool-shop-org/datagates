@@ -1,0 +1,8 @@
+{
+  "gatePolicyVersion": "multi-source-1.0",
+  "maxQuarantineRatio": 0.5,
+  "maxDuplicateRatio": 0.2,
+  "maxCriticalNullRate": 0.1,
+  "maxSourceQuarantineRatio": 0.3,
+  "allowPartialSalvage": true
+}

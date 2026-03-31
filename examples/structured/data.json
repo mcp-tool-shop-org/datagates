@@ -1,0 +1,12 @@
+[
+  { "id": "r001", "name": "Alice Johnson", "value": 150, "category": "alpha", "description": "Lead engineer" },
+  { "id": "r002", "name": "Bob Smith", "value": 200, "category": "beta", "description": "Product manager" },
+  { "id": "r003", "name": "Carol White", "value": 75, "category": "gamma", "description": "Designer" },
+  { "id": "r004", "name": "alice johnson", "value": 150, "category": "alpha", "description": "Lead engineer (duplicate)" },
+  { "id": "r005", "name": "Dave Brown", "value": -50, "category": "alpha", "description": "Negative value — should quarantine" },
+  { "id": "r006", "name": "Eve Davis", "value": 300, "category": "delta", "description": "Invalid category — should quarantine" },
+  { "id": "r007", "name": "Frank Miller", "value": 500, "category": "beta" },
+  { "id": "r008", "value": 100, "category": "alpha", "description": "Missing name — should quarantine" },
+  { "id": "r009", "name": "Grace Lee", "value": 425, "category": "gamma", "description": "Senior analyst" },
+  { "id": "r010", "name": "Henry Park", "value": 880, "category": "alpha", "description": "VP of operations" }
+]
