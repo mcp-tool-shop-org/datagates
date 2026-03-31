@@ -125,6 +125,9 @@ function cmdInit(): number {
   const goldSetPath = join(process.cwd(), config.goldSetPath!);
   writeFileSync(goldSetPath, JSON.stringify(defaultGoldSet(), null, 2) + '\n');
   console.log(`  Created ${config.goldSetPath}`);
+  if (packId) {
+    console.log(`  NOTE: gold-set.json uses default schema fields — update it to match your schema`);
+  }
 
   // Create artifacts dir
   ensureDir(join(process.cwd(), config.artifactsPath!));
@@ -136,7 +139,8 @@ function cmdInit(): number {
   console.log('  Next steps:');
   console.log('    1. Edit schema.json to match your data');
   console.log('    2. Edit policy.json to set your thresholds');
-  console.log('    3. Run: datagates run --input data.json');
+  console.log('    3. Edit gold-set.json to match your schema');
+  console.log('    4. Run: datagates run --input data.json');
   console.log('');
 
   return EXIT.OK;
@@ -360,7 +364,7 @@ function cmdReview(): number {
     } else {
       console.log(`  ${items.length} review item(s):`);
       for (const item of items) {
-        console.log(`    ${item.reviewId.slice(0, 8)} [${item.type}] ${item.status} — target: ${item.targetId.slice(0, 12)}`);
+        console.log(`    ${item.reviewId} [${item.type}] ${item.status} — target: ${item.targetId.slice(0, 12)}`);
       }
     }
     return EXIT.OK;

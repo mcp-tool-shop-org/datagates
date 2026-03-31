@@ -14,6 +14,8 @@ export function defaultConfig(name: string): ProjectConfig {
     storePath: 'datagates.db',
     goldSetPath: 'gold-set.json',
     artifactsPath: 'artifacts',
+    reviewQueuePath: 'reviews.json',
+    sourceRegistryPath: 'sources.json',
   };
 }
 
