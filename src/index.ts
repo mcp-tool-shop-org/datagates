@@ -6,6 +6,9 @@ export { normalize, NORMALIZATION_VERSION } from './normalize.js';
 export { hashPayload, contentAddressedId } from './hash.js';
 export { evaluateSemanticRules } from './semantic.js';
 export { findNearDuplicates, computeRecordSimilarity } from './similarity.js';
+export { computeBatchMetrics } from './metrics.js';
+export { detectDrift } from './drift.js';
+export { detectHoldoutOverlap } from './holdout.js';
 export type {
   SchemaContract,
   FieldDef,
@@ -23,4 +26,11 @@ export type {
   NearDuplicateConfig,
   NearDuplicateFieldConfig,
   ConfidenceBreakdown,
+  BatchMetrics,
+  NumericSummary,
+  DriftRule,
+  DriftViolation,
+  HoldoutConfig,
+  BatchDisposition,
+  BatchVerdict,
 } from './types.js';

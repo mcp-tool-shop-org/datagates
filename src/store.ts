@@ -1,5 +1,5 @@
 import Database from 'better-sqlite3';
-import type { ZonedRecord, BatchSummary, Zone } from './types.js';
+import type { ZonedRecord, BatchSummary, Zone, BatchMetrics } from './types.js';
 
 /**
  * SQLite-backed zone storage.
@@ -56,8 +56,18 @@ export class ZoneStore {
         null_rates TEXT NOT NULL,
         avg_confidence REAL NOT NULL DEFAULT 1.0,
         promoted INTEGER NOT NULL DEFAULT 0,
-        reject_reasons TEXT NOT NULL DEFAULT '{}'
+        reject_reasons TEXT NOT NULL DEFAULT '{}',
+        verdict TEXT,
+        metrics TEXT
       );
+
+      CREATE TABLE IF NOT EXISTS holdout_records (
+        id TEXT PRIMARY KEY,
+        normalized_hash TEXT NOT NULL,
+        payload TEXT NOT NULL
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_holdout_hash ON holdout_records(normalized_hash);
     `);
   }
 
@@ -103,12 +113,14 @@ export class ZoneStore {
         batch_run_id, timestamp, schema_version, normalization_version,
         gate_policy_version, rows_ingested, rows_passed, rows_quarantined,
         duplicates_detected, near_duplicates_detected, semantic_violations,
-        null_rates, avg_confidence, promoted, reject_reasons
+        null_rates, avg_confidence, promoted, reject_reasons,
+        verdict, metrics
       ) VALUES (
         @batchRunId, @timestamp, @schemaVersion, @normalizationVersion,
         @gatePolicyVersion, @rowsIngested, @rowsPassed, @rowsQuarantined,
         @duplicatesDetected, @nearDuplicatesDetected, @semanticViolations,
-        @nullRates, @avgConfidence, @promoted, @rejectReasons
+        @nullRates, @avgConfidence, @promoted, @rejectReasons,
+        @verdict, @metrics
       )
     `).run({
       batchRunId: summary.batchRunId,
@@ -126,6 +138,8 @@ export class ZoneStore {
       avgConfidence: summary.avgConfidence,
       promoted: summary.promoted ? 1 : 0,
       rejectReasons: JSON.stringify(summary.rejectReasons),
+      verdict: summary.verdict ? JSON.stringify(summary.verdict) : null,
+      metrics: summary.metrics ? JSON.stringify(summary.metrics) : null,
     });
   }
 
@@ -158,6 +172,8 @@ export class ZoneStore {
       avgConfidence: row.avg_confidence,
       promoted: !!row.promoted,
       rejectReasons: JSON.parse(row.reject_reasons),
+      verdict: row.verdict ? JSON.parse(row.verdict) : null,
+      metrics: row.metrics ? JSON.parse(row.metrics) : null,
     };
   }
 
@@ -183,6 +199,68 @@ export class ZoneStore {
       "UPDATE records SET zone = 'approved' WHERE batch_run_id = ? AND zone = 'candidate'"
     ).run(batchRunId);
     return result.changes;
+  }
+
+  // ── Holdout management ──────────────────────────────────────────────
+
+  registerHoldout(records: { id: string; normalizedHash: string; payload: Record<string, unknown> }[]): void {
+    const insert = this.db.prepare(
+      'INSERT OR IGNORE INTO holdout_records (id, normalized_hash, payload) VALUES (@id, @normalizedHash, @payload)'
+    );
+    const tx = this.db.transaction((recs: typeof records) => {
+      for (const r of recs) {
+        insert.run({ id: r.id, normalizedHash: r.normalizedHash, payload: JSON.stringify(r.payload) });
+      }
+    });
+    tx(records);
+  }
+
+  getHoldoutRecords(): { id: string; normalizedHash: string; payload: Record<string, unknown> }[] {
+    const rows = this.db.prepare('SELECT * FROM holdout_records').all() as any[];
+    return rows.map(r => ({
+      id: r.id,
+      normalizedHash: r.normalized_hash,
+      payload: JSON.parse(r.payload),
+    }));
+  }
+
+  // ── Baseline ───────────────────────────────────────────────────────
+
+  getLastPromotedMetrics(): BatchMetrics | null {
+    const row = this.db.prepare(
+      "SELECT metrics FROM batch_summaries WHERE promoted = 1 AND metrics IS NOT NULL ORDER BY timestamp DESC LIMIT 1"
+    ).get() as any;
+    if (!row?.metrics) return null;
+    return JSON.parse(row.metrics);
+  }
+
+  // ── Source-level operations ────────────────────────────────────────
+
+  quarantineBySource(batchRunId: string, sourceId: string): number {
+    const result = this.db.prepare(
+      "UPDATE records SET zone = 'quarantine' WHERE batch_run_id = ? AND source_id = ? AND zone = 'candidate'"
+    ).run(batchRunId, sourceId);
+    return result.changes;
+  }
+
+  getSourceQuarantineRates(batchRunId: string): Record<string, { total: number; quarantined: number; rate: number }> {
+    const rows = this.db.prepare(`
+      SELECT source_id,
+        COUNT(*) as total,
+        SUM(CASE WHEN zone = 'quarantine' THEN 1 ELSE 0 END) as quarantined
+      FROM records WHERE batch_run_id = ?
+      GROUP BY source_id
+    `).all(batchRunId) as any[];
+
+    const result: Record<string, { total: number; quarantined: number; rate: number }> = {};
+    for (const r of rows) {
+      result[r.source_id] = {
+        total: r.total,
+        quarantined: r.quarantined,
+        rate: r.total > 0 ? r.quarantined / r.total : 0,
+      };
+    }
+    return result;
   }
 
   getCandidatesForSimilarity(): { id: string; payload: Record<string, unknown> }[] {

@@ -40,7 +40,11 @@ export type FailureClass =
   // Phase 2 — semantic
   | 'field_contradiction'
   | 'cross_field_violation'
-  | 'near_duplicate';
+  | 'near_duplicate'
+  // Phase 3 — batch health
+  | 'holdout_overlap'
+  | 'source_contamination'
+  | 'drift_violation';
 
 export interface FailureReason {
   field: string;
@@ -94,6 +98,10 @@ export interface BatchSummary {
   avgConfidence: number;
   promoted: boolean;
   rejectReasons: Record<FailureClass, number>;
+  /** Phase 3: detailed batch verdict */
+  verdict: BatchVerdict | null;
+  /** Phase 3: batch-level metrics snapshot */
+  metrics: BatchMetrics | null;
 }
 
 // ── Semantic rules ───────────────────────────────────────────────────
@@ -158,6 +166,82 @@ export interface ConfidenceBreakdown {
   nearDuplicateOf: string[];
 }
 
+// ── Batch health metrics (Phase 3) ───────────────────────────────────
+
+export interface BatchMetrics {
+  /** Per-field null/missing rates */
+  nullRates: Record<string, number>;
+  /** Per-enum-field value distribution (field → value → count) */
+  labelDistribution: Record<string, Record<string, number>>;
+  /** Per-source record counts */
+  sourceDistribution: Record<string, number>;
+  /** Per-numeric-field summary stats */
+  numericSummaries: Record<string, NumericSummary>;
+  /** Quarantine rate by failure class */
+  quarantineByReason: Record<string, number>;
+  /** Total rows, passed, quarantined */
+  rowsTotal: number;
+  rowsPassed: number;
+  rowsQuarantined: number;
+  duplicateRate: number;
+  nearDuplicateRate: number;
+}
+
+export interface NumericSummary {
+  min: number;
+  max: number;
+  mean: number;
+  median: number;
+  stddev: number;
+  count: number;
+}
+
+// ── Drift detection (Phase 3) ────────────────────────────────────────
+
+export interface DriftRule {
+  id: string;
+  description: string;
+  type: 'null_spike' | 'label_skew' | 'source_contamination' | 'numeric_drift' | 'class_disappearance';
+  /** Field this rule applies to */
+  field: string;
+  /** Maximum allowed change from baseline (absolute or ratio, depends on type) */
+  threshold: number;
+}
+
+export interface DriftViolation {
+  ruleId: string;
+  description: string;
+  field: string;
+  type: DriftRule['type'];
+  baselineValue: number;
+  currentValue: number;
+  threshold: number;
+}
+
+// ── Holdout config (Phase 3) ─────────────────────────────────────────
+
+export interface HoldoutConfig {
+  /** Near-duplicate similarity threshold for holdout overlap detection */
+  similarityThreshold?: number;
+}
+
+// ── Batch disposition (Phase 3) ──────────────────────────────────────
+
+export type BatchDisposition =
+  | 'approve'
+  | 'approve_with_warnings'
+  | 'quarantine_batch'
+  | 'partial_salvage';
+
+export interface BatchVerdict {
+  disposition: BatchDisposition;
+  reasons: string[];
+  driftViolations: DriftViolation[];
+  holdoutOverlaps: number;
+  quarantinedSources: string[];
+  warnings: string[];
+}
+
 // ── Gate policy ──────────────────────────────────────────────────────
 
 export interface GatePolicy {
@@ -176,4 +260,12 @@ export interface GatePolicy {
   minConfidence?: number;
   /** Maximum near-duplicate ratio before batch is rejected (Phase 2) */
   maxNearDuplicateRatio?: number;
+  /** Drift rules for batch health comparison (Phase 3) */
+  driftRules?: DriftRule[];
+  /** Holdout overlap detection config (Phase 3) */
+  holdout?: HoldoutConfig;
+  /** Source contamination threshold: max quarantine ratio per source (Phase 3) */
+  maxSourceQuarantineRatio?: number;
+  /** Allow partial salvage when some sources are contaminated (Phase 3) */
+  allowPartialSalvage?: boolean;
 }
