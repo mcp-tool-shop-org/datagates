@@ -269,3 +269,157 @@ export interface GatePolicy {
   /** Allow partial salvage when some sources are contaminated (Phase 3) */
   allowPartialSalvage?: boolean;
 }
+
+// ── Policy registry (Phase 4) ────────────────────────────────────────
+
+export type PolicyStatus = 'draft' | 'active' | 'shadow' | 'retired';
+
+export interface PolicyMeta {
+  policyId: string;
+  version: string;
+  name: string;
+  status: PolicyStatus;
+  parentPolicyId?: string;
+  effectiveDate: string;
+  author: string;
+  notes?: string;
+  policy: GatePolicy;
+}
+
+// ── Calibration (Phase 4) ────────────────────────────────────────────
+
+export interface GoldSetEntry {
+  id: string;
+  payload: Record<string, unknown>;
+  sourceId: string;
+  /** Expected outcome */
+  expected: 'approve' | 'quarantine';
+  /** Why this is in the gold set */
+  reason: string;
+}
+
+export interface CalibrationResult {
+  policyId: string;
+  policyVersion: string;
+  timestamp: string;
+  total: number;
+  truePositives: number;
+  trueNegatives: number;
+  falsePositives: number;
+  falseNegatives: number;
+  precision: number;
+  recall: number;
+  f1: number;
+  details: CalibrationDetail[];
+}
+
+export interface CalibrationDetail {
+  goldSetId: string;
+  expected: 'approve' | 'quarantine';
+  actual: 'approve' | 'quarantine';
+  correct: boolean;
+  failures: FailureReason[];
+}
+
+// ── Override law (Phase 4) ───────────────────────────────────────────
+
+export type OverrideAction =
+  | 'waive_row'
+  | 'waive_batch'
+  | 'approve_despite_warning'
+  | 'reject_despite_pass'
+  | 'source_probation_exception';
+
+export interface OverrideReceipt {
+  overrideId: string;
+  action: OverrideAction;
+  targetId: string;
+  targetType: 'record' | 'batch' | 'source';
+  actor: string;
+  timestamp: string;
+  reason: string;
+  policyVersion: string;
+  expiresAt?: string;
+  scope?: string;
+}
+
+// ── Review queue (Phase 4) ───────────────────────────────────────────
+
+export type ReviewItemType =
+  | 'quarantined_row'
+  | 'quarantined_batch'
+  | 'source_quarantine'
+  | 'shadow_delta'
+  | 'approved_sample';
+
+export type ReviewStatus =
+  | 'pending'
+  | 'reviewed'
+  | 'overridden'
+  | 'confirmed'
+  | 'dismissed';
+
+export interface ReviewItem {
+  reviewId: string;
+  type: ReviewItemType;
+  targetId: string;
+  batchRunId: string;
+  status: ReviewStatus;
+  createdAt: string;
+  reviewedAt?: string;
+  reviewer?: string;
+  notes?: string;
+  overrideId?: string;
+}
+
+// ── Source onboarding (Phase 4) ──────────────────────────────────────
+
+export type SourceStatus = 'probation' | 'active' | 'suspended';
+export type ProbationLevel = 'quarantine_only' | 'partial_promotion' | 'supervised';
+
+export interface SourceContract {
+  sourceId: string;
+  status: SourceStatus;
+  probationLevel?: ProbationLevel;
+  registeredAt: string;
+  activatedAt?: string;
+  schemaId: string;
+  criticalFields: string[];
+  dedupeStrategy: string;
+  expectedDistributions?: Record<string, Record<string, number>>;
+  notes?: string;
+  batchesCompleted: number;
+  probationBatchesRequired: number;
+}
+
+// ── Shadow mode (Phase 4) ────────────────────────────────────────────
+
+export interface ShadowResult {
+  shadowPolicyId: string;
+  activePolicyId: string;
+  batchRunId: string;
+  timestamp: string;
+  activeVerdict: BatchVerdict;
+  shadowVerdict: BatchVerdict;
+  newlyRejectedRows: number;
+  newlyApprovedRows: number;
+  newlyQuarantinedSources: string[];
+  verdictChanged: boolean;
+}
+
+// ── Decision artifact (Phase 4) ──────────────────────────────────────
+
+export interface DecisionArtifact {
+  batchRunId: string;
+  timestamp: string;
+  schema: { id: string; version: string };
+  policy: { id: string; version: string; name: string };
+  summary: BatchSummary;
+  rulesTriggered: { ruleId: string; count: number }[];
+  sourceActions: { sourceId: string; action: string; reason: string }[];
+  holdoutResults: { overlaps: number };
+  driftResults: DriftViolation[];
+  overridesApplied: OverrideReceipt[];
+  verdict: BatchVerdict;
+  reconstructable: boolean;
+}
