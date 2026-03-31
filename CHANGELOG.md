@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.0.0 (2026-03-31)
+
+Release. Governed data promotion system — four trust layers, 9-command CLI, 4 policy packs.
+
+No code changes from 1.0.0-rc.1 except release packaging:
+- Version bump to 1.0.0
+- SECURITY.md with threat model
+- CI workflow
+- Shipcheck gates passed (A-D)
+
 ## 1.0.0-rc.1 (2026-03-31)
 
 First release candidate. Complete governed data promotion system.

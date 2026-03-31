@@ -1,4 +1,16 @@
-# datagates
+<p align="center">
+  <a href="README.ja.md">日本語</a> | <a href="README.zh.md">中文</a> | <a href="README.es.md">Español</a> | <a href="README.fr.md">Français</a> | <a href="README.hi.md">हिन्दी</a> | <a href="README.it.md">Italiano</a> | <a href="README.pt-BR.md">Português (BR)</a>
+</p>
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/mcp-tool-shop-org/brand/main/logos/datagates/readme.png" width="400" alt="datagates" />
+</p>
+
+<p align="center">
+  <a href="https://github.com/mcp-tool-shop-org/datagates/actions"><img src="https://github.com/mcp-tool-shop-org/datagates/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
+  <a href="https://github.com/mcp-tool-shop-org/datagates/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT License" /></a>
+  <a href="https://mcp-tool-shop-org.github.io/datagates/"><img src="https://img.shields.io/badge/docs-landing%20page-blue" alt="Landing Page" /></a>
+</p>
 
 Governed data promotion system. Data earns trust through layered gates, not silent cleaning.
 
@@ -119,6 +131,14 @@ console.log(result.summary.verdict);
 - [Artifacts](docs/ARTIFACTS.md) — Decision evidence
 - [Glossary](docs/GLOSSARY.md) — Terms and concepts
 
+## Security
+
+Datagates operates **locally only**. It reads and writes files within your project directory — JSON configs, a SQLite database, and decision artifacts. It makes no network calls, collects no telemetry, and handles no credentials. See [SECURITY.md](SECURITY.md) for the full threat model and reporting instructions.
+
 ## License
 
 MIT
+
+---
+
+Built by <a href="https://mcp-tool-shop.github.io/">MCP Tool Shop</a>

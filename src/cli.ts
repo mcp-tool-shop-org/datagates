@@ -670,6 +670,8 @@ function saveSourceRegistry(config: ReturnType<typeof loadConfig>, baseDir: stri
 // ── Entry ───────────────────────────────────────────────────────────
 
 main().then(code => process.exit(code)).catch(err => {
-  console.error(err);
+  const message = err instanceof Error ? err.message : String(err);
+  console.error(`Error: ${message}`);
+  if (process.argv.includes('--debug')) console.error(err);
   process.exit(1);
 });

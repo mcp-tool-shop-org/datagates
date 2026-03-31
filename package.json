@@ -1,6 +1,6 @@
 {
   "name": "datagates",
-  "version": "1.0.0-rc.1",
+  "version": "1.0.0",
   "description": "Governed data promotion system. Data earns trust through layered gates, not silent cleaning.",
   "type": "module",
   "main": "dist/index.js",
@@ -19,7 +19,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "tsc --noEmit",
-    "verify": "npm run lint && npm test"
+    "verify": "npm run lint && npm test && npm run build",
+    "coverage": "vitest run --coverage"
   },
   "keywords": [
     "data",
@@ -47,6 +48,7 @@
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^25.5.0",
+    "@vitest/coverage-v8": "^4.1.2",
     "typescript": "^5.7.0",
     "vitest": "^3.0.0"
   },
